@@ -27,6 +27,13 @@ A modern, lightweight time tracking application built with TypeScript, Lit, and 
   - Dark mode support
   - Intuitive navigation
   - Beautiful card-based layout
+- 📱 **Progressive Web App (PWA)**
+
+  - Install on your device (desktop or mobile)
+  - Works offline
+  - Automatic updates
+  - Native-like experience
+  - Responsive design for all screen sizes
 
 ## Getting Started
 
@@ -55,6 +62,17 @@ A modern, lightweight time tracking application built with TypeScript, Lit, and 
    ```
 4. Open your browser and navigate to `http://localhost:5173`
 
+### PWA Installation
+
+1. Visit the application URL
+2. Click the "Install App" button when prompted
+3. Follow your browser's installation instructions
+
+#### PWA Requirements
+- Modern browser (Chrome, Edge, Firefox, Safari)
+- HTTPS connection (required for PWA installation)
+- Sufficient storage space on your device
+
 ## Usage
 
 1. **Adding Time Entries**
@@ -82,6 +100,7 @@ A modern, lightweight time tracking application built with TypeScript, Lit, and 
 - **Styling**: CSS with dark mode support
 - **Data Storage**: LocalStorage
 - **Excel Export**: [xlsx](https://www.npmjs.com/package/xlsx) library
+- **PWA Support**: Vite PWA Plugin
 
 ## Contributing
 
@@ -96,3 +115,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Lit](https://lit.dev/)
 - Powered by [Vite](https://vitejs.dev/)
 - Excel export using [xlsx](https://www.npmjs.com/package/xlsx)
+- PWA support with [vite-plugin-pwa](https://vite-pwa-org.netlify.app/)
