@@ -1,156 +1,161 @@
-import { LitElement, css, html } from 'lit'
-import { customElement, state } from 'lit/decorators.js'
-import * as XLSX from 'xlsx'
+import { LitElement, css, html } from "lit";
+import { customElement, state } from "lit/decorators.js";
+import * as XLSX from "xlsx";
+import { registerSW, showInstallPrompt } from "./register-sw";
 
 interface TimeEntry {
-  time: string
-  comment: string
-  ticketRef: string
-  timestamp: number
-  date: string
+  time: string;
+  comment: string;
+  ticketRef: string;
+  timestamp: number;
+  date: string;
 }
 
-@customElement('time-tracker')
+@customElement("time-tracker")
 export class TimeTracker extends LitElement {
   @state()
-  private entries: TimeEntry[] = []
+  private entries: TimeEntry[] = [];
 
   @state()
-  private timeInput = ''
+  private timeInput = "";
 
   @state()
-  private commentInput = ''
+  private commentInput = "";
 
   @state()
-  private ticketRefInput = ''
+  private ticketRefInput = "";
 
   @state()
-  private selectedDate = new Date().toISOString().split('T')[0]
+  private selectedDate = new Date().toISOString().split("T")[0];
 
   @state()
-  private showHistory = false
+  private showHistory = false;
 
   @state()
-  private showTicketInfo = false
+  private showTicketInfo = false;
 
   @state()
-  private timeError = ''
+  private timeError = "";
 
   @state()
-  private commentError = ''
+  private commentError = "";
 
   @state()
-  private editingEntry: TimeEntry | null = null
+  private editingEntry: TimeEntry | null = null;
 
   @state()
-  private currentPage = 1
+  private currentPage = 1;
 
   @state()
-  private itemsPerPage = 5
+  private itemsPerPage = 5;
 
   connectedCallback() {
-    super.connectedCallback()
-    this.loadEntries()
+    super.connectedCallback();
+    this.loadEntries();
+    registerSW();
   }
 
   private loadEntries() {
-    const savedEntries = localStorage.getItem('timeEntries')
+    const savedEntries = localStorage.getItem("timeEntries");
     if (savedEntries) {
-      this.entries = JSON.parse(savedEntries)
+      this.entries = JSON.parse(savedEntries);
     }
   }
 
   private saveEntries() {
-    localStorage.setItem('timeEntries', JSON.stringify(this.entries))
+    localStorage.setItem("timeEntries", JSON.stringify(this.entries));
   }
 
   private parseTimeString(timeStr: string): number {
-    const timeRegex = /(\d+d)?\s*(\d+h)?\s*(\d+m)?\s*(\d+s)?/
-    const match = timeStr.match(timeRegex)
-    if (!match) return 0
+    const timeRegex = /(\d+d)?\s*(\d+h)?\s*(\d+m)?\s*(\d+s)?/;
+    const match = timeStr.match(timeRegex);
+    if (!match) return 0;
 
-    const [, days, hours, minutes, seconds] = match
-    let totalHours = 0
+    const [, days, hours, minutes, seconds] = match;
+    let totalHours = 0;
 
-    if (days) totalHours += parseInt(days) * 24
-    if (hours) totalHours += parseInt(hours)
-    if (minutes) totalHours += parseInt(minutes) / 60
-    if (seconds) totalHours += parseInt(seconds) / 3600
+    if (days) totalHours += parseInt(days) * 24;
+    if (hours) totalHours += parseInt(hours);
+    if (minutes) totalHours += parseInt(minutes) / 60;
+    if (seconds) totalHours += parseInt(seconds) / 3600;
 
-    return totalHours
+    return totalHours;
   }
 
   private getTotalHours(date?: string): number {
-    const entries = date 
-      ? this.entries.filter(entry => entry.date === date)
-      : this.entries.filter(entry => entry.date === this.selectedDate)
-    
+    const entries = date
+      ? this.entries.filter((entry) => entry.date === date)
+      : this.entries.filter((entry) => entry.date === this.selectedDate);
+
     return entries.reduce((total, entry) => {
-      return total + this.parseTimeString(entry.time)
-    }, 0)
+      return total + this.parseTimeString(entry.time);
+    }, 0);
   }
 
   private validateTime(timeStr: string): boolean {
-    const timeRegex = /^(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?(\d+s\s*)?$/
-    return timeRegex.test(timeStr.trim())
+    const timeRegex = /^(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?(\d+s\s*)?$/;
+    return timeRegex.test(timeStr.trim());
   }
 
   private validateForm(): boolean {
-    let isValid = true
+    let isValid = true;
 
     // Validate time
     if (!this.timeInput.trim()) {
-      this.timeError = 'Time is required'
-      isValid = false
+      this.timeError = "Time is required";
+      isValid = false;
     } else if (!this.validateTime(this.timeInput)) {
-      this.timeError = 'Invalid time format. Use format like: 1h 45m or 2d 1h 45m 35s'
-      isValid = false
+      this.timeError =
+        "Invalid time format. Use format like: 1h 45m or 2d 1h 45m 35s";
+      isValid = false;
     } else {
-      this.timeError = ''
+      this.timeError = "";
     }
 
     // Validate comment
     if (!this.commentInput.trim()) {
-      this.commentError = 'Comment is required'
-      isValid = false
+      this.commentError = "Comment is required";
+      isValid = false;
     } else {
-      this.commentError = ''
+      this.commentError = "";
     }
 
-    return isValid
+    return isValid;
   }
 
   private handleEdit(entry: TimeEntry) {
-    this.editingEntry = entry
-    this.timeInput = entry.time
-    this.commentInput = entry.comment
-    this.ticketRefInput = entry.ticketRef
+    this.editingEntry = entry;
+    this.timeInput = entry.time;
+    this.commentInput = entry.comment;
+    this.ticketRefInput = entry.ticketRef;
   }
 
   private handleDelete(entry: TimeEntry) {
-    if (confirm('Are you sure you want to delete this entry?')) {
-      this.entries = this.entries.filter(e => e.timestamp !== entry.timestamp)
-      this.saveEntries()
+    if (confirm("Are you sure you want to delete this entry?")) {
+      this.entries = this.entries.filter(
+        (e) => e.timestamp !== entry.timestamp
+      );
+      this.saveEntries();
     }
   }
 
   private handleSubmit(e: Event) {
-    e.preventDefault()
-    if (!this.validateForm()) return
+    e.preventDefault();
+    if (!this.validateForm()) return;
 
     if (this.editingEntry) {
       // Update existing entry
-      this.entries = this.entries.map(entry => 
+      this.entries = this.entries.map((entry) =>
         entry.timestamp === this.editingEntry!.timestamp
           ? {
               ...entry,
               time: this.timeInput,
               comment: this.commentInput,
-              ticketRef: this.ticketRefInput
+              ticketRef: this.ticketRefInput,
             }
           : entry
-      )
-      this.editingEntry = null
+      );
+      this.editingEntry = null;
     } else {
       // Add new entry
       this.entries = [
@@ -160,106 +165,108 @@ export class TimeTracker extends LitElement {
           comment: this.commentInput,
           ticketRef: this.ticketRefInput,
           timestamp: Date.now(),
-          date: this.selectedDate
-        }
-      ]
+          date: this.selectedDate,
+        },
+      ];
     }
 
-    this.timeInput = ''
-    this.commentInput = ''
-    this.ticketRefInput = ''
-    this.timeError = ''
-    this.commentError = ''
-    this.saveEntries()
+    this.timeInput = "";
+    this.commentInput = "";
+    this.ticketRefInput = "";
+    this.timeError = "";
+    this.commentError = "";
+    this.saveEntries();
   }
 
   private handleCancel() {
-    this.editingEntry = null
-    this.timeInput = ''
-    this.commentInput = ''
-    this.ticketRefInput = ''
-    this.timeError = ''
-    this.commentError = ''
+    this.editingEntry = null;
+    this.timeInput = "";
+    this.commentInput = "";
+    this.ticketRefInput = "";
+    this.timeError = "";
+    this.commentError = "";
   }
 
   private formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   }
 
   private getUniqueDates(): string[] {
-    return [...new Set(this.entries.map(entry => entry.date))].sort((a, b) => b.localeCompare(a))
+    return [...new Set(this.entries.map((entry) => entry.date))].sort((a, b) =>
+      b.localeCompare(a)
+    );
   }
 
   private getMaxDate(): string {
-    return new Date().toISOString().split('T')[0]
+    return new Date().toISOString().split("T")[0];
   }
 
   private isToday(date: string): boolean {
-    const today = new Date().toISOString().split('T')[0]
-    return date === today
+    const today = new Date().toISOString().split("T")[0];
+    return date === today;
   }
 
   private formatTitleDate(date: string): string {
     if (this.isToday(date)) {
-      return "Today's Entries"
+      return "Today's Entries";
     }
-    return `Entries for ${this.formatDate(date)}`
+    return `Entries for ${this.formatDate(date)}`;
   }
 
   private handleDateSelect(date: string) {
-    this.selectedDate = date
-    this.showHistory = false
+    this.selectedDate = date;
+    this.showHistory = false;
   }
 
   private getPaginatedDates(): string[] {
-    const start = (this.currentPage - 1) * this.itemsPerPage
-    const end = start + this.itemsPerPage
-    return this.getUniqueDates().slice(start, end)
+    const start = (this.currentPage - 1) * this.itemsPerPage;
+    const end = start + this.itemsPerPage;
+    return this.getUniqueDates().slice(start, end);
   }
 
   private getTotalPages(): number {
-    return Math.ceil(this.getUniqueDates().length / this.itemsPerPage)
+    return Math.ceil(this.getUniqueDates().length / this.itemsPerPage);
   }
 
   private handlePageChange(page: number) {
-    this.currentPage = page
+    this.currentPage = page;
   }
 
   private exportToExcel() {
     // Group entries by date
     const groupedEntries = this.entries.reduce((acc, entry) => {
       if (!acc[entry.date]) {
-        acc[entry.date] = []
+        acc[entry.date] = [];
       }
-      acc[entry.date].push(entry)
-      return acc
-    }, {} as Record<string, TimeEntry[]>)
+      acc[entry.date].push(entry);
+      return acc;
+    }, {} as Record<string, TimeEntry[]>);
 
     // Create workbook
-    const wb = XLSX.utils.book_new()
+    const wb = XLSX.utils.book_new();
 
     // Create a worksheet for each date
     Object.entries(groupedEntries).forEach(([date, entries]) => {
       // Convert entries to worksheet data
       const wsData = [
-        ['Date', 'Time', 'Ticket Reference', 'Comment', 'Total Hours'],
-        ...entries.map(entry => [
+        ["Date", "Time", "Ticket Reference", "Comment", "Total Hours"],
+        ...entries.map((entry) => [
           this.formatDate(date),
           entry.time,
-          entry.ticketRef || '-',
+          entry.ticketRef || "-",
           entry.comment,
-          this.parseTimeString(entry.time).toFixed(2)
+          this.parseTimeString(entry.time).toFixed(2),
         ]),
-        ['', '', '', 'TOTAL HOURS', this.getTotalHours(date).toFixed(2)]
-      ]
+        ["", "", "", "TOTAL HOURS", this.getTotalHours(date).toFixed(2)],
+      ];
 
       // Create worksheet
-      const ws = XLSX.utils.aoa_to_sheet(wsData)
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
 
       // Set column widths
       const colWidths = [
@@ -267,67 +274,83 @@ export class TimeTracker extends LitElement {
         { wch: 15 }, // Time
         { wch: 20 }, // Ticket Reference
         { wch: 50 }, // Comment
-        { wch: 15 }  // Total Hours
-      ]
-      ws['!cols'] = colWidths
+        { wch: 15 }, // Total Hours
+      ];
+      ws["!cols"] = colWidths;
 
       // Add styling for headers and total row
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
-      const lastRow = range.e.r
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+      const lastRow = range.e.r;
 
       // Style headers
       for (let C = range.s.c; C <= range.e.c; ++C) {
-        const headerCell = XLSX.utils.encode_cell({ r: 0, c: C })
+        const headerCell = XLSX.utils.encode_cell({ r: 0, c: C });
         ws[headerCell].s = {
           font: { bold: true, color: { rgb: "FFFFFF" } },
           fill: { fgColor: { rgb: "4A90E2" } },
-          alignment: { horizontal: "center" }
-        }
+          alignment: { horizontal: "center" },
+        };
       }
 
       // Style total row
-      const totalLabelCell = XLSX.utils.encode_cell({ r: lastRow, c: 3 })
-      const totalValueCell = XLSX.utils.encode_cell({ r: lastRow, c: 4 })
-      
+      const totalLabelCell = XLSX.utils.encode_cell({ r: lastRow, c: 3 });
+      const totalValueCell = XLSX.utils.encode_cell({ r: lastRow, c: 4 });
+
       ws[totalLabelCell].s = {
         font: { bold: true, color: { rgb: "FFFFFF" } },
         fill: { fgColor: { rgb: "2ECC71" } },
-        alignment: { horizontal: "right" }
-      }
-      
+        alignment: { horizontal: "right" },
+      };
+
       ws[totalValueCell].s = {
         font: { bold: true, color: { rgb: "FFFFFF" } },
         fill: { fgColor: { rgb: "2ECC71" } },
-        alignment: { horizontal: "center" }
-      }
+        alignment: { horizontal: "center" },
+      };
 
       // Add worksheet to workbook
-      XLSX.utils.book_append_sheet(wb, ws, date)
-    })
+      XLSX.utils.book_append_sheet(wb, ws, date);
+    });
 
     // Generate Excel file
-    const fileName = `hours-tracker-${new Date().toISOString().split('T')[0]}.xlsx`
-    XLSX.writeFile(wb, fileName)
+    const fileName = `hours-tracker-${
+      new Date().toISOString().split("T")[0]
+    }.xlsx`;
+    XLSX.writeFile(wb, fileName);
   }
 
   render() {
-    const todayEntries = this.entries.filter(entry => entry.date === this.selectedDate)
-    const paginatedDates = this.getPaginatedDates()
-    const totalPages = this.getTotalPages()
+    const todayEntries = this.entries.filter(
+      (entry) => entry.date === this.selectedDate
+    );
+    const paginatedDates = this.getPaginatedDates();
+    const totalPages = this.getTotalPages();
 
     return html`
       <div class="container">
         <div class="header">
           <h1>Hours Tracker</h1>
-          <div class="date-selector">
-            <label for="date">Select Date:</label>
-            <input
-              type="date"
-              id="date"
-              .value=${this.selectedDate}
-              @input=${(e: Event) => this.selectedDate = (e.target as HTMLInputElement).value}
-              max=${this.getMaxDate()}
-            />
+          <div class="header-actions">
+            <button
+              id="install-button"
+              class="install-button"
+              @click=${showInstallPrompt}
+              style="display: none;"
+            >
+              <span class="install-icon">📱</span>
+              Install App
+            </button>
+            <div class="date-selector">
+              <label for="date">Select Date:</label>
+              <input
+                type="date"
+                id="date"
+                .value=${this.selectedDate}
+                @input=${(e: Event) =>
+                  (this.selectedDate = (e.target as HTMLInputElement).value)}
+                max=${this.getMaxDate()}
+              />
+            </div>
           </div>
         </div>
 
@@ -339,37 +362,41 @@ export class TimeTracker extends LitElement {
                 id="time"
                 .value=${this.timeInput}
                 @input=${(e: Event) => {
-                  this.timeInput = (e.target as HTMLInputElement).value
-                  this.validateForm()
+                  this.timeInput = (e.target as HTMLInputElement).value;
+                  this.validateForm();
                 }}
                 placeholder="1h 45m"
-                class=${this.timeError ? 'error' : ''}
+                class=${this.timeError ? "error" : ""}
               />
-              ${this.timeError ? html`
-                <span class="error-message">${this.timeError}</span>
-              ` : ''}
+              ${this.timeError
+                ? html` <span class="error-message">${this.timeError}</span> `
+                : ""}
             </div>
-            
+
             <div class="input-group">
               <label for="ticketRef">
                 Ticket Reference
-                <span 
+                <span
                   class="info-icon"
-                  @mouseenter=${() => this.showTicketInfo = true}
-                  @mouseleave=${() => this.showTicketInfo = false}
+                  @mouseenter=${() => (this.showTicketInfo = true)}
+                  @mouseleave=${() => (this.showTicketInfo = false)}
                 >
                   ℹ️
-                  ${this.showTicketInfo ? html`
-                    <div class="info-tooltip">
-                      Enter ticket number, title, or reference (e.g., "#123", "PROJ-123", "Bug Fix: Login Issue")
-                    </div>
-                  ` : ''}
+                  ${this.showTicketInfo
+                    ? html`
+                        <div class="info-tooltip">
+                          Enter ticket number, title, or reference (e.g.,
+                          "#123", "PROJ-123", "Bug Fix: Login Issue")
+                        </div>
+                      `
+                    : ""}
                 </span>
               </label>
               <input
                 id="ticketRef"
                 .value=${this.ticketRefInput}
-                @input=${(e: Event) => this.ticketRefInput = (e.target as HTMLInputElement).value}
+                @input=${(e: Event) =>
+                  (this.ticketRefInput = (e.target as HTMLInputElement).value)}
                 placeholder="#123, PROJ-123 or Bug Fix: Login Issue"
               />
             </div>
@@ -381,22 +408,32 @@ export class TimeTracker extends LitElement {
               id="comment"
               .value=${this.commentInput}
               @input=${(e: Event) => {
-                this.commentInput = (e.target as HTMLInputElement).value
-                this.validateForm()
+                this.commentInput = (e.target as HTMLInputElement).value;
+                this.validateForm();
               }}
               placeholder="What did you work on?"
-              class=${this.commentError ? 'error' : ''}
+              class=${this.commentError ? "error" : ""}
             />
-            ${this.commentError ? html`
-              <span class="error-message">${this.commentError}</span>
-            ` : ''}
+            ${this.commentError
+              ? html` <span class="error-message">${this.commentError}</span> `
+              : ""}
           </div>
 
           <div class="form-actions">
-            ${this.editingEntry ? html`
-              <button type="button" class="cancel-button" @click=${this.handleCancel}>Cancel</button>
-            ` : ''}
-            <button type="submit">${this.editingEntry ? 'Update Entry' : 'Add Entry'}</button>
+            ${this.editingEntry
+              ? html`
+                  <button
+                    type="button"
+                    class="cancel-button"
+                    @click=${this.handleCancel}
+                  >
+                    Cancel
+                  </button>
+                `
+              : ""}
+            <button type="submit">
+              ${this.editingEntry ? "Update Entry" : "Add Entry"}
+            </button>
           </div>
         </form>
 
@@ -404,133 +441,156 @@ export class TimeTracker extends LitElement {
           <div class="entries-header">
             <h2>${this.formatTitleDate(this.selectedDate)}</h2>
             <div class="header-actions">
-              <button 
+              <button
                 class="history-toggle"
                 @click=${() => {
-                  this.showHistory = !this.showHistory
-                  this.currentPage = 1
+                  this.showHistory = !this.showHistory;
+                  this.currentPage = 1;
                 }}
               >
-                ${this.showHistory ? 'Hide History' : 'Show History'}
+                ${this.showHistory ? "Hide History" : "Show History"}
               </button>
-              ${this.showHistory ? html`
-                <button 
-                  class="export-button"
-                  @click=${this.exportToExcel}
-                >
-                  Export to Excel
-                </button>
-              ` : ''}
+              ${this.showHistory
+                ? html`
+                    <button class="export-button" @click=${this.exportToExcel}>
+                      Export to Excel
+                    </button>
+                  `
+                : ""}
             </div>
           </div>
 
-          ${this.showHistory ? html`
-            <div class="history">
-              ${paginatedDates.map(date => html`
-                <div class="history-date">
-                  <div class="history-date-header">
-                    <div class="date-info">
-                      <h3>${this.formatDate(date)}</h3>
-                      <span class="total-hours">${this.getTotalHours(date).toFixed(2)}h total</span>
-                    </div>
-                    <button 
-                      class="select-date-button"
-                      @click=${() => this.handleDateSelect(date)}
-                    >
-                      View Entries
-                    </button>
-                  </div>
-                  <div class="history-entries">
-                    ${this.entries
-                      .filter(entry => entry.date === date)
-                      .map(entry => html`
-                        <div class="entry">
-                          <div class="entry-content">
-                            <span class="time">${entry.time}</span>
-                            ${entry.ticketRef ? html`
-                              <span class="ticket-ref">${entry.ticketRef}</span>
-                            ` : ''}
-                            <span class="comment">${entry.comment}</span>
-                          </div>
-                          <div class="entry-actions">
-                            <button 
-                              class="edit-button"
-                              @click=${() => this.handleEdit(entry)}
+          ${this.showHistory
+            ? html`
+                <div class="history">
+                  ${paginatedDates.map(
+                    (date) => html`
+                      <div class="history-date">
+                        <div class="history-date-header">
+                          <div class="date-info">
+                            <h3>${this.formatDate(date)}</h3>
+                            <span class="total-hours"
+                              >${this.getTotalHours(date).toFixed(2)}h
+                              total</span
                             >
-                              ✏️
-                            </button>
-                            <button 
-                              class="delete-button"
-                              @click=${() => this.handleDelete(entry)}
-                            >
-                              🗑️
-                            </button>
                           </div>
+                          <button
+                            class="select-date-button"
+                            @click=${() => this.handleDateSelect(date)}
+                          >
+                            View Entries
+                          </button>
                         </div>
-                      `)
-                    }
-                  </div>
+                        <div class="history-entries">
+                          ${this.entries
+                            .filter((entry) => entry.date === date)
+                            .map(
+                              (entry) => html`
+                                <div class="entry">
+                                  <div class="entry-content">
+                                    <span class="time">${entry.time}</span>
+                                    ${entry.ticketRef
+                                      ? html`
+                                          <span class="ticket-ref"
+                                            >${entry.ticketRef}</span
+                                          >
+                                        `
+                                      : ""}
+                                    <span class="comment"
+                                      >${entry.comment}</span
+                                    >
+                                  </div>
+                                  <div class="entry-actions">
+                                    <button
+                                      class="edit-button"
+                                      @click=${() => this.handleEdit(entry)}
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      class="delete-button"
+                                      @click=${() => this.handleDelete(entry)}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </div>
+                              `
+                            )}
+                        </div>
+                      </div>
+                    `
+                  )}
+                  ${totalPages > 1
+                    ? html`
+                        <div class="pagination">
+                          <button
+                            class="page-button"
+                            ?disabled=${this.currentPage === 1}
+                            @click=${() =>
+                              this.handlePageChange(this.currentPage - 1)}
+                          >
+                            Previous
+                          </button>
+                          <span class="page-info">
+                            Page ${this.currentPage} of ${totalPages}
+                          </span>
+                          <button
+                            class="page-button"
+                            ?disabled=${this.currentPage === totalPages}
+                            @click=${() =>
+                              this.handlePageChange(this.currentPage + 1)}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      `
+                    : ""}
                 </div>
-              `)}
-              
-              ${totalPages > 1 ? html`
-                <div class="pagination">
-                  <button 
-                    class="page-button"
-                    ?disabled=${this.currentPage === 1}
-                    @click=${() => this.handlePageChange(this.currentPage - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span class="page-info">
-                    Page ${this.currentPage} of ${totalPages}
-                  </span>
-                  <button 
-                    class="page-button"
-                    ?disabled=${this.currentPage === totalPages}
-                    @click=${() => this.handlePageChange(this.currentPage + 1)}
-                  >
-                    Next
-                  </button>
+              `
+            : html`
+                <div class="entries">
+                  ${todayEntries.map(
+                    (entry) => html`
+                      <div class="entry">
+                        <div class="entry-content">
+                          <span class="time">${entry.time}</span>
+                          ${entry.ticketRef
+                            ? html`
+                                <span class="ticket-ref"
+                                  >${entry.ticketRef}</span
+                                >
+                              `
+                            : ""}
+                          <span class="comment">${entry.comment}</span>
+                        </div>
+                        <div class="entry-actions">
+                          <button
+                            class="edit-button"
+                            @click=${() => this.handleEdit(entry)}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            class="delete-button"
+                            @click=${() => this.handleDelete(entry)}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    `
+                  )}
                 </div>
-              ` : ''}
-            </div>
-          ` : html`
-            <div class="entries">
-              ${todayEntries.map(entry => html`
-                <div class="entry">
-                  <div class="entry-content">
-                    <span class="time">${entry.time}</span>
-                    ${entry.ticketRef ? html`
-                      <span class="ticket-ref">${entry.ticketRef}</span>
-                    ` : ''}
-                    <span class="comment">${entry.comment}</span>
-                  </div>
-                  <div class="entry-actions">
-                    <button 
-                      class="edit-button"
-                      @click=${() => this.handleEdit(entry)}
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      class="delete-button"
-                      @click=${() => this.handleDelete(entry)}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              `)}
-            </div>
-          `}
+              `}
         </div>
 
         <div class="footer">
-          Total Hours for ${this.formatDate(this.selectedDate)}: ${this.getTotalHours().toFixed(2)}h
+          Total Hours for ${this.formatDate(this.selectedDate)}:
+          ${this.getTotalHours().toFixed(2)}h
         </div>
       </div>
-    `
+    `;
   }
 
   static styles = css`
@@ -673,7 +733,8 @@ export class TimeTracker extends LitElement {
       background-color: #e9ecef;
     }
 
-    .entries, .history-entries {
+    .entries,
+    .history-entries {
       display: flex;
       flex-direction: column;
       gap: 1rem;
@@ -702,7 +763,8 @@ export class TimeTracker extends LitElement {
       gap: 0.5rem;
     }
 
-    .edit-button, .delete-button {
+    .edit-button,
+    .delete-button {
       padding: 0.5rem;
       background: none;
       border: none;
@@ -711,7 +773,8 @@ export class TimeTracker extends LitElement {
       transition: transform 0.2s;
     }
 
-    .edit-button:hover, .delete-button:hover {
+    .edit-button:hover,
+    .delete-button:hover {
       transform: scale(1.1);
     }
 
@@ -898,7 +961,7 @@ export class TimeTracker extends LitElement {
     }
 
     .info-tooltip::after {
-      content: '';
+      content: "";
       position: absolute;
       bottom: -8px;
       left: 50%;
@@ -958,16 +1021,48 @@ export class TimeTracker extends LitElement {
       transform: translateY(-1px);
     }
 
+    .install-button {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .install-button:hover {
+      background-color: #218838;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .install-icon {
+      font-size: 1.25rem;
+    }
+
     @media (prefers-color-scheme: dark) {
       :host {
         background-color: #1a1a1a;
       }
 
-      .form, .entries-container, .history-date {
+      .form,
+      .entries-container,
+      .history-date {
         background-color: #2d2d2d;
       }
 
-      h1, h2, h3, .time, .history-total, label {
+      h1,
+      h2,
+      h3,
+      .time,
+      .history-total,
+      label {
         color: #f8f9fa;
       }
 
@@ -1023,7 +1118,8 @@ export class TimeTracker extends LitElement {
         background-color: #4e555b;
       }
 
-      .edit-button, .delete-button {
+      .edit-button,
+      .delete-button {
         color: #adb5bd;
       }
 
@@ -1089,12 +1185,109 @@ export class TimeTracker extends LitElement {
       .export-button:hover {
         background-color: #27ae60;
       }
+
+      .install-button {
+        background-color: #2ecc71;
+      }
+
+      .install-button:hover {
+        background-color: #27ae60;
+      }
     }
-  `
+
+    @media (max-width: 600px) {
+      .form-row {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .form-row .input-group {
+        margin-bottom: 0;
+      }
+
+      .container {
+        padding: 1rem;
+      }
+
+      .form {
+        padding: 1rem;
+      }
+
+      .entry {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+
+      .entry-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .time {
+        min-width: unset;
+      }
+
+      .entry-actions {
+        justify-content: flex-end;
+        padding-top: 0.5rem;
+        border-top: 1px solid #e9ecef;
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+        text-align: center;
+      }
+
+      .date-selector {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .entries-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .header-actions {
+        justify-content: center;
+      }
+
+      .entries-container {
+        padding: 1rem;
+      }
+
+      .history-date-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .select-date-button {
+        width: 100%;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .entry-actions {
+          border-top-color: #3d3d3d;
+        }
+      }
+
+      .install-button {
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 1rem;
+      }
+    }
+  `;
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'time-tracker': TimeTracker
+    "time-tracker": TimeTracker;
   }
-} 
+}
